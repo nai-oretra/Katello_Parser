@@ -1,0 +1,114 @@
+#!/usr/bin/python3
+
+##########################################
+#
+# In my exemple, server name start with s30 
+# List S30* servers matching the package name from
+#
+##########################################
+
+# Changelog
+# v1.0 - Other guy - 02/08/2021 : Initial version for S30*
+# v1.1 - Nai-oretra - 07/03/2022 : Add package name and environmental in filename. ex : katello_s30_samba
+# v1.2 - Nai-oretra - 03/11/2022 : Add date and package name in filename. Exemple katello_s30_samba --> 
+
+import sys
+import requests
+from requests.auth import HTTPBasicAuth
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+import configparser
+import json
+from math import ceil
+import re
+import os
+from datetime import datetime
+
+config = configparser.ConfigParser()
+config.read('../config.conf')
+URL = config['katello']['url']
+LOGIN = config['katello']['login']
+PASSWORD = config['katello']['pass']
+PER_PAGE = 5000
+
+requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+
+# https://MYKATELLOSERVER/api/v2/hosts/auto_complete_search?organization_id=14&page=1&paged=true&per_page=50&search=installed_package_name%3Dopenssl&sort_by=name&sort_order=ASC
+# https://MYKATELLOSERVER/api/v2/hosts?organization_id=14&page=1&paged=true&per_page=50&search=installed_package_name%3D+openssl&sort_by=name&sort_order=ASC
+
+
+def main():
+    os.system('cls')
+    if len(sys.argv) != 2:
+        print(sys.argv[0] + ' <package>')
+        exit()
+    try:
+        print()
+        print('Searching package(s) matching "*%s*"' % sys.argv[1])
+        response = requests.get(URL + '/api/v2/hosts/auto_complete_search', auth = HTTPBasicAuth(LOGIN, PASSWORD), verify = False, data = {'organization_id': 14, 'search': 'installed_package_name='+sys.argv[1], 'per_page': 'all', 'sort_by': 'name', 'sort_order': 'ASC' })
+        res = json.loads(response.text)
+        if 'error' in res:
+            print(res['error']['message'])
+            exit()
+        nb_packages = len(res)
+        if nb_packages == 0:
+            print('No package found.')
+        elif nb_packages > 100:
+            print('Too much packages found.')
+        else:
+            TEMP_LIST = res
+            print('%s package(s) found'% len(TEMP_LIST))
+            for i, item in enumerate(TEMP_LIST):
+                print('    [%s] %s' % (i,item['label'].replace('installed_package_name= ','')))
+            package = int(input('Package number: '))
+            package_name = TEMP_LIST[package]['label'].replace('installed_package_name= ','')
+            print()
+            print('Searching host(s)@Production with package "%s" installed' % package_name)
+            page = 1
+            response = requests.get(URL + '/api/v2/hosts', auth = HTTPBasicAuth(LOGIN, PASSWORD), verify = False, data = {'organization_id': 14, 'search': 'installed_package_name='+package_name+' and lifecycle_environment=Production', 'per_page': 'all', 'sort_by': 'name', 'sort_order': 'ASC' })
+            res = json.loads(response.text)
+            nb_servers = res['subtotal']
+            print('%s installed on %s server(s)' % (package_name, nb_servers))
+            print()
+            print('Filtering for s30*, please wait this might take a few minutes!')
+            servers = []
+            while page <= ceil(nb_servers/PER_PAGE):
+                print('Getting page %s of %s (%s results max)' % (page, ceil(nb_servers/PER_PAGE), PER_PAGE))
+                response = requests.get(URL + '/api/v2/hosts', auth = HTTPBasicAuth(LOGIN, PASSWORD), verify = False, data = {'organization_id': 14, 'search': 'installed_package_name='+package_name+' and lifecycle_environment=Production', 'per_page': PER_PAGE, 'sort_by': 'name', 'sort_order': 'ASC', 'page': page })
+                res = json.loads(response.text)
+                servers.extend([{'server_name':item['name'], 'server_id':item['id']} for item in res['results'] if item['name'].startswith('s30')])
+                page += 1
+            PACKAGES_SERVERS = []
+            print('%s server(s) filtered matching s30*' % len(servers))
+            print()
+            print('Retrieving package versions for each host...')
+            for server in servers:
+                response = requests.get(URL + '/api/v2/hosts/'+str(server['server_id'])+'/packages', auth = HTTPBasicAuth(LOGIN, PASSWORD), verify = False, data = {'search': package_name, 'per_page': PER_PAGE })
+                packages = json.loads(response.text)
+                PACKAGES_SERVERS.append({'server_name': server['server_name'], 'packages': [package['nvra'] for package in packages['results'] if package['name'] == package_name]})
+            print()
+            currentDay = str(datetime.now().day)
+            currentMonth = str(datetime.now().month)
+            currentYear = str(datetime.now().year)
+            currentDate = currentYear + "_" + currentMonth + "_" + currentDay
+            print('Results:')
+            f=open(currentDate + "_katello_s30_" + package_name + ".csv" ,'w+')
+            output = ''
+            for item in PACKAGES_SERVERS:
+                print('%s;"%s"' % (item['server_name'].lower().replace('.MYPROD.COM',''), '\n'.join(item['packages'])))
+                output += '%s;"%s"\n' % (item['server_name'].lower().replace('.MYPROD.COM',''), '\n'.join(item['packages']))
+            f.write(output)
+            f.close
+            print ("\nCreated file : " + currentDate + "_katello_s30_" + package_name + ".csv")
+    except Exception as e:
+        print(e)
+        import IPython
+        IPython.embed()
+        
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (KeyboardInterrupt):
+        print()
+        print('Aborted.')
+        
