@@ -11,10 +11,10 @@ With this code you can search a Linux package and export all serveur with this p
 
 1 - Download the source code and create a new folder like this for exemple : 
 
-.Desktop
-..Myfolder
-...config.config
-....Katello
+- .Desktop 
+- ..Myfolder 
+- ...config.config 
+- ....Katello .py
 
 2 - execute the python file like this : python .\katello_s30.py mypackage (ex : python .\katello_s30.py pki-core)
 
@@ -29,9 +29,9 @@ The CSV file was like this :
 server;versionpackageinstalled (ex : myserverlinux01;pki-core-3.2.1)
 If a different package was found with multiples servers, the CSV file was like this : 
 
-1 | myserverlinux01;pki-core-3.2.1
-2 | myserverlinux02;pki-core-3.2.2
-3 | myserverlinux09;pki-core-3.2.0
-(...)
+- 1 | myserverlinux01;pki-core-3.2.1 
+- 2 | myserverlinux02;pki-core-3.2.2 
+- 3 | myserverlinux09;pki-core-3.2.0 
+- (...)
 
 Enjoy ! 
