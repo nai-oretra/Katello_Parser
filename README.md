@@ -1,6 +1,6 @@
 # Katello_Parser
 
-Hello, this is a simply code parser for the software Katello Foreman 
+Hello, this is a simply code parser for the software Katello Foreman with using the API.
 
 https://theforeman.org/
 https://theforeman.org/plugins/katello/
