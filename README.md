@@ -31,7 +31,7 @@ If a different package was found with multiples servers, the CSV file was like t
 
 - 1 | myserverlinux01;pki-core-3.2.1 
 - 2 | myserverlinux02;pki-core-3.2.2 
-- 3 | myserverlinux09;pki-core-3.2.0 
+- 3 | myserverlinux09;pki-core-5.2.0 
 - (...)
 
 Enjoy ! 
